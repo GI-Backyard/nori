@@ -105,7 +105,7 @@ bool OcTreeNode::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowR
                  immediately if this is a shadow ray query */
                 if (shadowRay)
                     return true;
-                //if(t < ray.maxt)
+                if(t < its.t)
                 {
                     ray.maxt = its.t = t;
                     its.uv = Point2f(u, v);
@@ -173,11 +173,23 @@ bool OcTreeNode::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowR
     }
     else
     {
-        bool foundIntersection = false;  
-        for(int index = 0; index < children.size(); ++index)
+        bool foundIntersection = false;
+        OcTreeNode* sorted_children[8];
+        for(int index = 0; index < 8; ++index) sorted_children[index] = children[index];
+        for(int index = 0; index < 8; ++index)
         {
-            bool childIntersect = children[index]->rayIntersect(ray_, its, shadowRay);
-            foundIntersection = foundIntersection || childIntersect;
+            std::stable_sort(sorted_children, sorted_children+8, [ray_](const OcTreeNode* first, const OcTreeNode* second) {
+                float firstNearT(MAXFLOAT), secondNearT(MAXFLOAT);
+                float firstFarT(MAXFLOAT), secondFarT(MAXFLOAT);
+                first->GetBoundingBox().rayIntersect(ray_, firstNearT, firstFarT);
+                second->GetBoundingBox().rayIntersect(ray_, secondNearT, secondFarT);
+                return firstNearT < secondNearT;
+            });
+        }
+        for(int index = 0; index < 8; ++index)
+        {
+            foundIntersection = sorted_children[index]->rayIntersect(ray_, its, shadowRay) || foundIntersection;
+            if(foundIntersection) break;
         }
         return foundIntersection;
     }

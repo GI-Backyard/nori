@@ -34,6 +34,7 @@ void Accel::build() {
 }
 
 bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) const {
+    its.t = MAXFLOAT;
     return m_ocTree->rayIntersect(ray_, its, shadowRay);
 
     bool foundIntersection = false;  // Was an intersection found so far?
@@ -49,7 +50,7 @@ bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) c
                immediately if this is a shadow ray query */
             if (shadowRay)
                 return true;
-            if(t < ray.maxt)
+            if(t < its.t)
             {
                 ray.maxt = its.t = t;
                 its.uv = Point2f(u, v);
