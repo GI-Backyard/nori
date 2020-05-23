@@ -30,9 +30,12 @@ void Accel::addMesh(Mesh *mesh) {
 
 void Accel::build() {
     /* Nothing to do here for now */
+    m_ocTree = BuildOctree(m_mesh, 4);
 }
 
 bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) const {
+    return m_ocTree->rayIntersect(ray_, its, shadowRay);
+
     bool foundIntersection = false;  // Was an intersection found so far?
     uint32_t f = (uint32_t) -1;      // Triangle index of the closest intersection
 
@@ -46,11 +49,14 @@ bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) c
                immediately if this is a shadow ray query */
             if (shadowRay)
                 return true;
-            ray.maxt = its.t = t;
-            its.uv = Point2f(u, v);
-            its.mesh = m_mesh;
-            f = idx;
-            foundIntersection = true;
+            if(t < ray.maxt)
+            {
+                ray.maxt = its.t = t;
+                its.uv = Point2f(u, v);
+                its.mesh = m_mesh;
+                f = idx;
+                foundIntersection = true;
+            }
         }
     }
 
