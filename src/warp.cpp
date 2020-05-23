@@ -31,11 +31,18 @@ float Warp::squareToUniformSquarePdf(const Point2f &sample) {
 }
 
 Point2f Warp::squareToTent(const Point2f &sample) {
-    throw NoriException("Warp::squareToTent() is not yet implemented!");
+    auto tent1D = [](float delta)
+    {
+        if(delta < 0 && delta > 1) return 0.f;
+        else if(delta >=0 && delta <= 0.5) return sqrt(2 * delta) - 1.0f;
+        else return 1 - sqrt(2.0f - 2 * delta);
+    };
+    return Point2f(tent1D(sample.x()), tent1D(sample.y()));
 }
 
 float Warp::squareToTentPdf(const Point2f &p) {
-    throw NoriException("Warp::squareToTentPdf() is not yet implemented!");
+    // the area is [-1, 1] * [-1, 1] square
+    return (abs(p.x()) <= 1.0f && abs(p.y()) <= 1.0f) ? (1 - abs(p.x())) * ( 1 - abs(p.y())) : 0.0f;
 }
 
 Point2f Warp::squareToUniformDisk(const Point2f &sample) {
