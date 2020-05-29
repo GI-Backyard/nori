@@ -21,6 +21,7 @@
 #include <nori/object.h>
 #include <nori/frame.h>
 #include <nori/bbox.h>
+#include <nori/dpdf.h>
 
 NORI_NAMESPACE_BEGIN
 
@@ -124,6 +125,8 @@ public:
      */
     bool rayIntersect(uint32_t index, const Ray3f &ray, float &u, float &v, float &t) const;
 
+    void uniformSample(const Point3f& sample, Point3f& position, Vector3f& normal, float& pdf) const;
+
     /// Return a pointer to the vertex positions
     const MatrixXf &getVertexPositions() const { return m_V; }
 
@@ -176,6 +179,7 @@ protected:
     BSDF         *m_bsdf = nullptr;      ///< BSDF of the surface
     Emitter    *m_emitter = nullptr;     ///< Associated emitter, if any
     BoundingBox3f m_bbox;                ///< Bounding box of the mesh
+    DiscretePDF* m_facepdf = nullptr;               ///< precomputed pmf based on face area for sampling
 };
 
 NORI_NAMESPACE_END

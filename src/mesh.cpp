@@ -30,6 +30,7 @@ Mesh::Mesh() { }
 Mesh::~Mesh() {
     delete m_bsdf;
     delete m_emitter;
+    delete m_facepdf;
 }
 
 void Mesh::activate() {
@@ -38,6 +39,17 @@ void Mesh::activate() {
         m_bsdf = static_cast<BSDF *>(
             NoriObjectFactory::createInstance("diffuse", PropertyList()));
     }
+
+    if(!m_facepdf)
+    {
+        m_facepdf = new DiscretePDF(getTriangleCount());
+        for(uint32_t index = 0; index < getTriangleCount(); ++index)
+        {
+            m_facepdf->append(surfaceArea(index));
+        }
+        m_facepdf->normalize();
+    }
+
 }
 
 float Mesh::surfaceArea(uint32_t index) const {
@@ -123,6 +135,31 @@ void Mesh::addChild(NoriObject *obj) {
             throw NoriException("Mesh::addChild(<%s>) is not supported!",
                                 classTypeName(obj->getClassType()));
     }
+}
+
+void Mesh::uniformSample(const Point3f& sample, Point3f& position, Vector3f& normal, float& pdf) const
+{
+    // first sample triangle, and then sample based on selected triangle
+    pdf = m_facepdf->getNormalization();
+    uint32_t faceIndex = m_facepdf->sample(sample.x());
+    Point2f barycentric(1.0f - sqrt(sample.y()), sample.z() * sqrt(sample.y()));
+
+    uint32_t i0 = m_F(0, faceIndex), i1 = m_F(1, faceIndex), i2 = m_F(2, faceIndex);
+    
+    const Point3f p0 = m_V.col(i0), p1 = m_V.col(i1), p2 = m_V.col(i2);
+    position = Point3f(p0 * barycentric.x() + p1 * barycentric.y() + p2 * (1.0f - barycentric.x() - barycentric.y()));
+
+    if(m_N.cols() == m_V.cols())
+    {
+        const Vector3f n0 = m_N.col(i0), n1 = m_N.col(i1), n2 = m_N.col(i2);
+        normal = Vector3f(n0 * barycentric.x() + n1 * barycentric.y() + n2 * (1.0f - barycentric.x() - barycentric.y()));
+    }
+    else
+    {
+        // calculate surface normal
+        normal = Vector3f((p1 - p0).cross(p2 - p0));
+    }
+    normal.normalize();
 }
 
 std::string Mesh::toString() const {
