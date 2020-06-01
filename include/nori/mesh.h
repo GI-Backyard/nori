@@ -156,6 +156,9 @@ public:
 
     /// Return the name of this mesh
     const std::string &getName() const { return m_name; }
+    
+    /// get face pdf
+    const DiscretePDF* getFacePdf() const { return m_facepdf; }
 
     /// Return a human-readable summary of this instance
     std::string toString() const;

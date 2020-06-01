@@ -93,6 +93,7 @@ add_executable(nori
   src/octreenode.cpp
   src/pointlighting.cpp
   src/ao.cpp
+  src/arealight.cpp
 )
 
 add_definitions(${NANOGUI_EXTRA_DEFS})

@@ -1,6 +1,4 @@
 
-#pragma once
-
 #include <nori/emitter.h>
 #include <nori/mesh.h>
 
@@ -11,17 +9,26 @@ class AreaLight : public Emitter
 public:
     virtual Color3f sample(EmitterQueryRecord& record, const Point3f& sample) const
     {
-        return Color3f(0.0f, 0.0f, 0.0f);
+        if(geometry)
+        {
+            Point3f position;
+            Vector3f normal;
+            float pdf;
+            geometry->uniformSample(sample, position, normal, pdf);
+            record.position = position;
+            record.normal = normal;
+        }
+        return radiance;
     }
 
     virtual Color3f eval(const EmitterQueryRecord& record) const
     {
-        return Color3f(0.0f, 0.0f, 0.0f);
+        return radiance;
     }
 
     virtual float pdf(const EmitterQueryRecord& record) const
     {
-        return 1.0;
+        return geometry != nullptr ? geometry->getFacePdf()->getNormalization() : 1.0f;
     }
 
     virtual std::string toString() const
