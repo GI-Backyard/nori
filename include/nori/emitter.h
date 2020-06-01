@@ -22,12 +22,27 @@
 
 NORI_NAMESPACE_BEGIN
 
+struct EmitterQueryRecord
+{
+    Point3f position;
+
+    EmitterQueryRecord(const Point3f& position)
+    : position(position)
+    {
+
+    }
+};
 /**
  * \brief Superclass of all emitters
  */
 class Emitter : public NoriObject {
 public:
 
+    virtual Color3f sample(EmitterQueryRecord& record, const Point3f& sample) const = 0;
+
+    virtual Color3f eval(const EmitterQueryRecord& record) const = 0;
+
+    virtual float pdf(const EmitterQueryRecord& record) const = 0;
     /**
      * \brief Return the type of object (i.e. Mesh/Emitter/etc.) 
      * provided by this instance
