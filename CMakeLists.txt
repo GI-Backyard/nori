@@ -89,11 +89,14 @@ add_executable(nori
   src/microfacet.cpp
   src/mirror.cpp
   src/dielectric.cpp
-  src/normals.cpp
   src/octreenode.cpp
   src/pointlighting.cpp
-  src/ao.cpp
   src/arealight.cpp
+
+  src/normals.cpp
+  src/ao.cpp
+  src/whitted.cpp
+  
 )
 
 add_definitions(${NANOGUI_EXTRA_DEFS})

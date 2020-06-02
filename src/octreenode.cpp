@@ -2,16 +2,11 @@
 #include <Eigen/Geometry>
 NORI_NAMESPACE_BEGIN
 
-OcTreeNode* BuildOctree(const Mesh* mesh, int maxDepth)
+OcTreeNode* BuildOctree(const std::vector<Triangle>& triangles, const BoundingBox3f& bbox, int maxDepth)
 {
-    if(mesh == nullptr || mesh->getTriangleCount() == 0) return nullptr;
-    OcTreeNode* root = new OcTreeNode(mesh->getBoundingBox());
-    std::vector<int> triangles(mesh->getTriangleCount());
-    for(int index = 0; index < mesh->getTriangleCount(); ++index)
-    {
-        triangles[index] = index;
-    }
-    root->SetMeshTriangles(mesh, triangles);
+    if(triangles.size() == 0) return nullptr;
+    OcTreeNode* root = new OcTreeNode(bbox);
+    root->SetMeshTriangles(triangles);
     root->SubdivideRecursive(maxDepth);
     return root;
 }
@@ -54,7 +49,7 @@ const BoundingBox3f& OcTreeNode::GetBoundingBox() const
 
 bool OcTreeNode::ShouldSubdivide(int maxDepth) const
 {
-    return maxDepth > 0 && triangleIndices.size() > 10;
+    return maxDepth > 0 && triangles.size() > 10;
 }
 
 void OcTreeNode::SubdivideRecursive(int maxDepth)
@@ -63,27 +58,27 @@ void OcTreeNode::SubdivideRecursive(int maxDepth)
     {
         isLeaf = false;
         BoundingBox3f bbs[8];
-        std::vector<int> subdivideTriangles[8];
+        std::vector<Triangle> subdivideTriangles[8];
         for(int index = 0; index < 8; ++index)
         {
             bbs[index].reset();
             bbs[index].expandBy(boundingBox.getCenter());
             bbs[index].expandBy(boundingBox.getCorner(index));
-            for(int tIndex= 0; tIndex < triangleIndices.size(); ++tIndex)
+            for(uint32_t tIndex= 0; tIndex < triangles.size(); ++tIndex)
             {
-                if(bbs[index].overlaps(pMesh->getBoundingBox(triangleIndices[tIndex])))
+                if(bbs[index].overlaps(triangles[tIndex].mesh->getBoundingBox(triangles[tIndex].triangleIndex)))
                 {
-                    subdivideTriangles[index].push_back(triangleIndices[tIndex]);
+                    subdivideTriangles[index].push_back(triangles[tIndex]);
                 }
             }
             
             OcTreeNode* child = new OcTreeNode(bbs[index]);
-            child->SetMeshTriangles(pMesh, subdivideTriangles[index]);
+            child->SetMeshTriangles(subdivideTriangles[index]);
             child->SubdivideRecursive(maxDepth - 1);
             children.push_back(child);
         }
         
-        triangleIndices.clear();
+        triangles.clear();
     }
 }
 
@@ -98,9 +93,9 @@ bool OcTreeNode::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowR
         Ray3f ray(ray_); /// Make a copy of the ray (we will need to update its '.maxt' value)
         
         /* Brute force search through all triangles */
-        for (uint32_t idx = 0; idx < triangleIndices.size(); ++idx) {
+        for (uint32_t idx = 0; idx < triangles.size(); ++idx) {
             float u, v, t;
-            if (pMesh->rayIntersect(triangleIndices[idx], ray, u, v, t)) {
+            if (triangles[idx].mesh->rayIntersect(triangles[idx].triangleIndex, ray, u, v, t)) {
                 /* An intersection was found! Can terminate
                  immediately if this is a shadow ray query */
                 if (shadowRay)
@@ -109,8 +104,8 @@ bool OcTreeNode::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowR
                 {
                     ray.maxt = its.t = t;
                     its.uv = Point2f(u, v);
-                    its.mesh = pMesh;
-                    f = triangleIndices[idx];
+                    its.mesh = triangles[idx].mesh;
+                    f = triangles[idx].triangleIndex;
                     foundIntersection = true;
                 }
             }
@@ -195,10 +190,9 @@ bool OcTreeNode::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowR
     }
 }
 
-void OcTreeNode::SetMeshTriangles(const Mesh* mesh, const std::vector<int>& triangles)
+void OcTreeNode::SetMeshTriangles(const std::vector<Triangle>& triangles)
 {
-    pMesh = mesh;
-    triangleIndices = triangles;
+    this->triangles = triangles;
 }
 
 NORI_NAMESPACE_END

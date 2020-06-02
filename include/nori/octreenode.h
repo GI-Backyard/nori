@@ -4,13 +4,19 @@
 #include <nori/common.h>
 #include <nori/mesh.h>
 NORI_NAMESPACE_BEGIN
+
+struct Triangle
+{
+    const Mesh* mesh;
+    int32_t triangleIndex;
+};
+
 class OcTreeNode {
 private:
     BoundingBox3f boundingBox;
     bool isLeaf;
     std::vector<OcTreeNode*> children;
-    const Mesh* pMesh;
-    std::vector<int> triangleIndices;
+    std::vector<Triangle> triangles;
 public:
     OcTreeNode(const BoundingBox3f& bb);
     OcTreeNode();
@@ -22,10 +28,10 @@ public:
 private:
     bool ShouldSubdivide(int maxDepth) const;
     void SubdivideRecursive(int maxDepth);
-    void SetMeshTriangles(const Mesh* mesh, const std::vector<int>& triangles);
-    friend OcTreeNode* BuildOctree(const Mesh* mesh, int maxDepth);
+    void SetMeshTriangles(const std::vector<Triangle>& triangles);
+    friend OcTreeNode* BuildOctree(const std::vector<Triangle>& triangles, const BoundingBox3f& bbox, int maxDepth);
 };
 
-OcTreeNode* BuildOctree(const Mesh* mesh, int maxDepth);
+OcTreeNode* BuildOctree(const std::vector<Triangle>& triangles, const BoundingBox3f& bbox, int maxDepth);
 
 NORI_NAMESPACE_END
