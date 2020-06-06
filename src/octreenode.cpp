@@ -170,21 +170,27 @@ bool OcTreeNode::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowR
     {
         bool foundIntersection = false;
         OcTreeNode* sorted_children[8];
-        for(int index = 0; index < 8; ++index) sorted_children[index] = children[index];
+        float sorted_nearT[8];
         for(int index = 0; index < 8; ++index)
         {
-            std::stable_sort(sorted_children, sorted_children+8, [ray_](const OcTreeNode* first, const OcTreeNode* second) {
-                float firstNearT(MAXFLOAT), secondNearT(MAXFLOAT);
-                float firstFarT(MAXFLOAT), secondFarT(MAXFLOAT);
-                first->GetBoundingBox().rayIntersect(ray_, firstNearT, firstFarT);
-                second->GetBoundingBox().rayIntersect(ray_, secondNearT, secondFarT);
-                return firstNearT < secondNearT;
-            });
+            sorted_children[index] = children[index];
+            float farT;
+            children[index]->GetBoundingBox().rayIntersect(ray_, sorted_nearT[index], farT);
         }
+        std::stable_sort(sorted_nearT, sorted_nearT+8, [](const float& first, const float& second) {
+            return first < second;
+        });
+        std::stable_sort(sorted_children, sorted_children+8, [ray_](const OcTreeNode* first, const OcTreeNode* second) {
+            float firstNearT(MAXFLOAT), secondNearT(MAXFLOAT);
+            float firstFarT(MAXFLOAT), secondFarT(MAXFLOAT);
+            first->GetBoundingBox().rayIntersect(ray_, firstNearT, firstFarT);
+            second->GetBoundingBox().rayIntersect(ray_, secondNearT, secondFarT);
+            return firstNearT < secondNearT;
+        });
         for(int index = 0; index < 8; ++index)
         {
-            foundIntersection = sorted_children[index]->rayIntersect(ray_, its, shadowRay) || foundIntersection;
-            if(foundIntersection) break;
+            if(foundIntersection == false || its.t > sorted_nearT[index])
+                foundIntersection = sorted_children[index]->rayIntersect(ray_, its, shadowRay) || foundIntersection;
         }
         return foundIntersection;
     }
