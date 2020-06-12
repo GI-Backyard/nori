@@ -55,13 +55,47 @@ public:
         return Ltotal;
     }
     
+    // note: this could be iterative for multiple specular
+    Color3f EvaluateSpecular(const Scene *scene, Sampler *sampler, const Intersection& its, const Ray3f &lastRay) const
+    {
+        const BSDF* bsdf = its.mesh->getBSDF();
+        BSDFQueryRecord record(its.toLocal(-lastRay.d));
+        Color3f bsdfdivPdf = bsdf->sample(record, sampler->next2D());
+        Ray3f secondaRay(its.p, its.toWorld(record.wo));
+        Intersection nextIts;
+        const float earlyExitThreshold = 0.95f;
+        if(scene->rayIntersect(secondaRay, nextIts))
+        {
+            if(sampler->next1D() < earlyExitThreshold)
+            {
+                return 1.0/0.95 * bsdfdivPdf * EvaluateWhitted(scene, sampler, nextIts, secondaRay);
+            }
+            else
+            {
+                return Color3f(0, 0, 0);
+            }
+        }
+        else
+        {
+            return Color3f(0, 0, 0);
+        }
+    }
+    
+    Color3f EvaluateWhitted(const Scene *scene, Sampler *sampler, const Intersection& its, const Ray3f &lastRay) const
+    {
+        if(!its.mesh->getBSDF()->isDiffuse())
+        {
+            return EvaluateSpecular(scene, sampler, its, lastRay);
+        }
+        return EvaluateDiffuse(scene, sampler, its, lastRay);
+    }
+    
     Color3f Li(const Scene *scene, Sampler *sampler, const Ray3f &ray) const {
         Intersection its;
         if(!scene->rayIntersect(ray, its)) {
             return Color3f(0.1, 0.1, 0.1);
         }
-        
-        return EvaluateDiffuse(scene, sampler, its, ray);
+        return EvaluateWhitted(scene, sampler, its, ray);
         
     }
     /// Return a human-readable description for debugging purposes
