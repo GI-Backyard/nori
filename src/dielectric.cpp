@@ -57,7 +57,7 @@ public:
         bRec.eta = 1.0f;
     }
     
-    bool refract(const Vector3f &wi, const Vector3f& normal,float extI, float extT, Vector3f* wt) const
+    bool refract(const Vector3f &wi, const Vector3f& normal,float extI, float extT, BSDFQueryRecord &bRec) const
     {
         float costhetaI = wi.dot(normal);
         float sin2thetaI = std::max(0.0f, 1.0f - costhetaI * costhetaI);
@@ -65,7 +65,9 @@ public:
         if(sin2thetaT > 1) return false;
         float costhetaT = std::sqrt(1 - sin2thetaT);
         
-        *wt = -extI / extT * wi + (extI / extT * costhetaI - costhetaT) * normal;
+        bRec.wo = -extI / extT * wi + (extI / extT * costhetaI - costhetaT) * normal;
+        bRec.eta = extI / extT;
+        bRec.measure = EDiscrete;
         return true;
     }
     
@@ -78,7 +80,7 @@ public:
             normal.z() = -1.f;
             std::swap(extI, extT);
         }
-        bool refractSuccess = refract(bRec.wi, normal, extI, extT, &bRec.wo);
+        bool refractSuccess = refract(bRec.wi, normal, extI, extT, bRec);
         if(!refractSuccess)
         {
             reflect(bRec);
