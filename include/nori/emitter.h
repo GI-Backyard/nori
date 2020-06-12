@@ -26,13 +26,6 @@ struct EmitterQueryRecord
 {
     Point3f position;
     Vector3f normal;
-
-    EmitterQueryRecord(const Point3f& position, const Vector3f& normal)
-    : position(position)
-    , normal(normal)
-    {
-
-    }
 };
 /**
  * \brief Superclass of all emitters
