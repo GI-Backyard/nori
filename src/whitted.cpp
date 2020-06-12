@@ -12,12 +12,8 @@ public:
     WhittedIntegrator(const PropertyList& props) {
     }
 
-    Color3f Li(const Scene *scene, Sampler *sampler, const Ray3f &ray) const {
-        Intersection its;
-        if(!scene->rayIntersect(ray, its)) {
-            return Color3f(0.1, 0.1, 0.1);
-        }
-        
+    Color3f EvaluateDiffuse(const Scene *scene, Sampler *sampler, const Intersection& its, const Ray3f &lastRay) const
+    {
         Color3f Ltotal(0, 0, 0);
         // Le
         if(its.mesh->getEmitter())
@@ -25,7 +21,7 @@ public:
             EmitterQueryRecord record;
             Ltotal = its.mesh->getEmitter()->eval(record);
         }
-
+        
         // sampling Light
         std::vector<Emitter*> lights;
         for(auto& mesh : scene->getMeshes())
@@ -38,7 +34,7 @@ public:
         float pdf = lights[sampledLight]->pdf(lightRecord);
         pdf = pdf / lights.size();
         
-        Vector3f wo = -ray.d;
+        Vector3f wo = -lastRay.d;
         wo.normalize();
         Vector3f wi = lightRecord.position - its.p;
         float lengthwi = wi.norm();
@@ -54,9 +50,19 @@ public:
             Color3f reflection = its.mesh->getBSDF()->eval(BSDFQueryRecord(its.toLocal(wi), its.toLocal(wo), EMeasure::ESolidAngle));
             Ltotal += Le * reflection * geom / pdf;
         }
-
-
+        
+        
         return Ltotal;
+    }
+    
+    Color3f Li(const Scene *scene, Sampler *sampler, const Ray3f &ray) const {
+        Intersection its;
+        if(!scene->rayIntersect(ray, its)) {
+            return Color3f(0.1, 0.1, 0.1);
+        }
+        
+        return EvaluateDiffuse(scene, sampler, its, ray);
+        
     }
     /// Return a human-readable description for debugging purposes
     std::string toString() const {
