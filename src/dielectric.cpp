@@ -18,7 +18,7 @@
 
 #include <nori/bsdf.h>
 #include <nori/frame.h>
-
+#include <nori/common.h>
 NORI_NAMESPACE_BEGIN
 
 /// Ideal dielectric BSDF
@@ -42,8 +42,63 @@ public:
         return 0.0f;
     }
 
+    void reflect(BSDFQueryRecord &bRec) const
+    {
+        // mirror reflect
+        // Reflection in local coordinates
+        bRec.wo = Vector3f(
+                           -bRec.wi.x(),
+                           -bRec.wi.y(),
+                           bRec.wi.z()
+                           );
+        bRec.measure = EDiscrete;
+        
+        /* Relative index of refraction: no change */
+        bRec.eta = 1.0f;
+    }
+    
+    bool refract(const Vector3f &wi, const Vector3f& normal,float extI, float extT, Vector3f* wt) const
+    {
+        float costhetaI = wi.dot(normal);
+        float sin2thetaI = std::max(0.0f, 1.0f - costhetaI * costhetaI);
+        float sin2thetaT = extI * extI * sin2thetaI / (extT * extT);
+        if(sin2thetaT > 1) return false;
+        float costhetaT = std::sqrt(1 - sin2thetaT);
+        
+        *wt = -extI / extT * wi + (extI / extT * costhetaI - costhetaT) * normal;
+        return true;
+    }
+    
     Color3f sample(BSDFQueryRecord &bRec, const Point2f &sample) const {
-        throw NoriException("Unimplemented!");
+        float extI = m_extIOR;
+        float extT = m_intIOR;
+        Vector3f normal(0, 0, 1);
+        if (Frame::cosTheta(bRec.wi) <= 0)
+        {
+            normal.z() = -1.f;
+            std::swap(extI, extT);
+        }
+        bool refractSuccess = refract(bRec.wi, normal, extI, extT, &bRec.wo);
+        if(!refractSuccess)
+        {
+            reflect(bRec);
+            return Color3f(1.0f);
+        }
+        else
+        {
+            float frFactor = fresnel(std::abs(bRec.wi.z()), extI, extT);
+            if(sample.x() < frFactor)
+            {
+                reflect(bRec);
+                return Color3f(1.0f);
+            }
+            else
+            {
+                float r = extT * extT / (extI * extI) * (1.0f - frFactor);
+                return Color3f(r);
+            }
+        }
+        
     }
 
     std::string toString() const {
