@@ -181,8 +181,8 @@ bool OcTreeNode::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowR
             return first < second;
         });
         std::stable_sort(sorted_children, sorted_children+8, [ray_](const OcTreeNode* first, const OcTreeNode* second) {
-            float firstNearT(MAXFLOAT), secondNearT(MAXFLOAT);
-            float firstFarT(MAXFLOAT), secondFarT(MAXFLOAT);
+            float firstNearT(INFINITY), secondNearT(INFINITY);
+            float firstFarT(INFINITY), secondFarT(INFINITY);
             first->GetBoundingBox().rayIntersect(ray_, firstNearT, firstFarT);
             second->GetBoundingBox().rayIntersect(ray_, secondNearT, secondFarT);
             return firstNearT < secondNearT;
