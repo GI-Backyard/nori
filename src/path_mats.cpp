@@ -9,7 +9,15 @@ public:
     }
 
     Color3f Li(const Scene *scene, Sampler *sampler, const Ray3f &ray) const {
+        Color3f Ltotal(0, 0, 0);
         Intersection its;
+        const int MAX_BOUNCE = 8;
+        int bounce = 0;
+        while (bounce < MAX_BOUNCE)
+        {
+            /* code */
+        }
+        
         if(!scene->rayIntersect(ray, its)) {
             return Color3f(0, 0, 0);
         }
