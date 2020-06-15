@@ -51,7 +51,7 @@ void Accel::build() {
 }
 
 bool Accel::rayIntersect(const Ray3f &ray_, Intersection &its, bool shadowRay) const {
-    its.t = MAXFLOAT;
+    its.t = INFINITY;
     return m_ocTree->rayIntersect(ray_, its, shadowRay);
 
 }
