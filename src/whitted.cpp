@@ -23,11 +23,7 @@ public:
         }
         
         // sampling Light
-        std::vector<Emitter*> lights;
-        for(auto& mesh : scene->getMeshes())
-        {
-            if(mesh->getEmitter()) lights.push_back(mesh->getEmitter());
-        }
+        const std::vector<Emitter*>& lights = scene->getLights();
         uint32_t sampledLight = sampler->next1D() * lights.size();
         EmitterQueryRecord lightRecord;
         Color3f Le = lights[sampledLight]->sample(lightRecord, Point3f(sampler->next1D(), sampler->next1D(), sampler->next1D()));

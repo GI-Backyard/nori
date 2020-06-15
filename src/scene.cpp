@@ -38,7 +38,10 @@ Scene::~Scene() {
 
 void Scene::activate() {
     m_accel->build();
-
+	for (auto& mesh : this->getMeshes())
+	{
+		if (mesh->getEmitter()) m_lights.push_back(mesh->getEmitter());
+	}
     if (!m_integrator)
         throw NoriException("No integrator was specified!");
     if (!m_camera)

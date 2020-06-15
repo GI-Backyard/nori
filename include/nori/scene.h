@@ -19,6 +19,7 @@
 #pragma once
 
 #include <nori/accel.h>
+#include <nori/emitter.h>
 
 NORI_NAMESPACE_BEGIN
 
@@ -116,8 +117,11 @@ public:
     std::string toString() const;
 
     EClassType getClassType() const { return EScene; }
+
+	const std::vector<Emitter*>& getLights() const { return m_lights; }
 private:
     std::vector<Mesh *> m_meshes;
+	std::vector<Emitter*> m_lights;
     Integrator *m_integrator = nullptr;
     Sampler *m_sampler = nullptr;
     Camera *m_camera = nullptr;
