@@ -20,9 +20,9 @@ static float maxComponent(Color3f& color)
 	return result;
 }
 
-class PathMatsIntegrator : public Integrator {
+class PathEMSIntegrator : public Integrator {
 public:
-    PathMatsIntegrator(const PropertyList& props) {
+    PathEMSIntegrator(const PropertyList& props) {
     }
 
     Color3f Li(const Scene *scene, Sampler *sampler, const Ray3f &ray) const {
@@ -30,13 +30,15 @@ public:
         Intersection its;
 		Ray3f tracedRay = ray;
 		Color3f rayThrough = Color3f(1.0f);
-        const int MAX_BOUNCE = 8;
+        const int MAX_BOUNCE = 10;
 		float accumunatedEta = 1.0f;
+		bool isSpecular = false;
         for(int bounce = 0; bounce < MAX_BOUNCE; ++bounce)
         {
 			bool intersected = scene->rayIntersect(tracedRay, its);
 			{
-				if (intersected && its.mesh->getEmitter())
+				// for specular and eye ray, emitter need to be calculated seperately
+				if (intersected && its.mesh->getEmitter() && (bounce == 0 || isSpecular))
 				{
 					EmitterQueryRecord record;
 					Ltotal += rayThrough * its.mesh->getEmitter()->eval(record);
@@ -46,11 +48,40 @@ public:
 			if (!intersected)
 				break;
 
+			// calculate lighting
+
+			{
+				const std::vector<Emitter*>& lights = scene->getLights();
+				uint32_t sampledLight = sampler->next1D() * lights.size();
+				EmitterQueryRecord lightRecord;
+				Color3f Le = lights[sampledLight]->sample(lightRecord, Point3f(sampler->next1D(), sampler->next1D(), sampler->next1D()));
+				float pdf = lights[sampledLight]->pdf(lightRecord);
+				pdf = pdf / lights.size();
+
+				Vector3f wo = -tracedRay.d;
+				wo.normalize();
+				Vector3f wi = lightRecord.position - its.p;
+				float lengthwi = wi.norm();
+				wi.normalize();
+
+				Ray3f secondaRay(its.p, wi);
+				secondaRay.maxt = lengthwi - Epsilon;
+				if (!scene->rayIntersect(secondaRay))
+				{
+					float geom = its.shFrame.n.dot(wi) * lightRecord.normal.dot(-wi) / (lengthwi * lengthwi);
+					if (geom < 0) geom = 0;
+					// bsdf
+					Color3f reflection = its.mesh->getBSDF()->eval(BSDFQueryRecord(its.toLocal(wi), its.toLocal(wo), EMeasure::ESolidAngle));
+					Ltotal += rayThrough * Le * reflection * geom / pdf;
+				}
+			}
+
 			Vector3f wo = -tracedRay.d;
 			wo.normalize();
 
 			// sample bsdf
 			const BSDF* bsdf = its.mesh->getBSDF();
+			isSpecular = !bsdf->isDiffuse();
 			BSDFQueryRecord record(its.toLocal(wo));
 
 			Color3f f = bsdf->sample(record, sampler->next2D());
@@ -82,8 +113,8 @@ public:
     }
     /// Return a human-readable description for debugging purposes
     std::string toString() const {
-        return "PathMatsIntegrator[]";
+        return "PathEMSIntegrator[]";
     }
 };
-NORI_REGISTER_CLASS(PathMatsIntegrator, "path_mats")
+NORI_REGISTER_CLASS(PathEMSIntegrator, "path_ems")
 NORI_NAMESPACE_END
