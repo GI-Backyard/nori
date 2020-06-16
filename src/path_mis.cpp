@@ -29,30 +29,96 @@ inline float PowerHeuristic(int nf, float fPdf, int ng, float gPdf) {
     return (f * f) / (f * f + g * g);
 }
 
-Color3f UniformSampleAllLights(const Scene *scene, const Ray3f& ray, const Intersection& its, Sampler* sampler)
+Color3f EMSSampleLights(const Scene *scene, const Ray3f& ray, const Intersection& its, Sampler* sampler)
 {
 	Color3f result(0.f);
 	const std::vector<Emitter*>& lights = scene->getLights();
 	uint32_t sampledLight = sampler->next1D() * lights.size();
-	EmitterQueryRecord lightRecord;
-	Color3f Le = lights[sampledLight]->sample(lightRecord, Point3f(sampler->next1D(), sampler->next1D(), sampler->next1D()));
-	float pdf = lights[sampledLight]->pdf(lightRecord);
-
-	Vector3f wo = -ray.d;
-	wo.normalize();
-	Vector3f wi = lightRecord.position - its.p;
-	float lengthwi = wi.norm();
-	wi.normalize();
-
-	Ray3f shadowRay(its.p, wi);
-	shadowRay.maxt = lengthwi - Epsilon;
-	if (!scene->rayIntersect(shadowRay))
+	// mis sample light
 	{
-		float geom = its.shFrame.n.dot(wi) * lightRecord.normal.dot(-wi) / (lengthwi * lengthwi);
-		if (geom < 0) geom = 0;
-		// bsdf
-		Color3f reflection = its.mesh->getBSDF()->eval(BSDFQueryRecord(its.toLocal(wi), its.toLocal(wo), EMeasure::ESolidAngle));
-		result = Le * reflection * geom / pdf;
+		EmitterQueryRecord lightRecord;
+		Color3f Le = lights[sampledLight]->sample(lightRecord, Point3f(sampler->next1D(), sampler->next1D(), sampler->next1D()));
+		float lightPdf = lights[sampledLight]->pdf(lightRecord);
+
+		Vector3f wo = -ray.d;
+		wo.normalize();
+		Vector3f wi = lightRecord.position - its.p;
+		float lengthwi = wi.norm();
+		wi.normalize();
+
+		Ray3f shadowRay(its.p, wi);
+		shadowRay.maxt = lengthwi - Epsilon;
+		if (!scene->rayIntersect(shadowRay))
+		{
+			float geom = its.shFrame.n.dot(wi) * lightRecord.normal.dot(-wi) / (lengthwi * lengthwi);
+			if (geom < 0) geom = 0;
+			// bsdf
+			Color3f reflection = its.mesh->getBSDF()->eval(BSDFQueryRecord(its.toLocal(wo), its.toLocal(wi), EMeasure::ESolidAngle));
+			float bsdfPdf = its.mesh->getBSDF()->pdf(BSDFQueryRecord(its.toLocal(wo), its.toLocal(wi), EMeasure::ESolidAngle));
+			result = Le * reflection * geom / lightPdf;
+
+		}
+	}
+
+	return result;
+}
+
+Color3f MISSampleLights(const Scene *scene, const Ray3f& ray, const Intersection& its, Sampler* sampler)
+{
+	Color3f result(0.f);
+	const std::vector<Emitter*>& lights = scene->getLights();
+	uint32_t sampledLight = sampler->next1D() * lights.size();
+	// mis sample light
+	{
+		EmitterQueryRecord lightRecord;
+		Color3f Le = lights[sampledLight]->sample(lightRecord, Point3f(sampler->next1D(), sampler->next1D(), sampler->next1D()));
+		float lightPdf = lights[sampledLight]->pdf(lightRecord);
+
+		Vector3f wo = -ray.d;
+		wo.normalize();
+		Vector3f wi = lightRecord.position - its.p;
+		float lengthwi = wi.norm();
+		wi.normalize();
+
+		Ray3f shadowRay(its.p, wi);
+		shadowRay.maxt = lengthwi - Epsilon;
+		if (!scene->rayIntersect(shadowRay))
+		{
+			float geom = its.shFrame.n.dot(wi) * lightRecord.normal.dot(-wi) / (lengthwi * lengthwi);
+			if (geom < 0) geom = 0;
+			// bsdf
+			Color3f reflection = its.mesh->getBSDF()->eval(BSDFQueryRecord(its.toLocal(wo), its.toLocal(wi), EMeasure::ESolidAngle));
+			float bsdfPdf = its.mesh->getBSDF()->pdf(BSDFQueryRecord(its.toLocal(wo), its.toLocal(wi), EMeasure::ESolidAngle));
+			float weight = PowerHeuristic(1, lightPdf, 1, bsdfPdf);
+			result = Le * reflection * geom * weight / lightPdf;
+			
+		}
+	}
+
+	// mis sample bsdf
+	{
+		Vector3f wo = -ray.d;
+		wo.normalize();
+		BSDFQueryRecord bsdfRecord(its.toLocal(wo));
+		Color3f fdivPdf = its.mesh->getBSDF()->sample(bsdfRecord, sampler->next2D());
+		float bsdfPdf = its.mesh->getBSDF()->pdf(bsdfRecord);
+		float weight = 1.0f;
+		float lightPdf = 0.0f;
+		Color3f Le(0.f);
+		Ray3f shadowRay(its.p, its.toWorld(bsdfRecord.wo));
+		Intersection shadowIntersection;
+		bool intersected = scene->rayIntersect(shadowRay, shadowIntersection);
+		if (intersected && shadowIntersection.mesh->getEmitter() == lights[sampledLight] && bsdfPdf != 0)
+		{
+			EmitterQueryRecord lightRecord;
+			lightRecord.position = shadowIntersection.p;
+			lightRecord.normal = shadowIntersection.geoFrame.n;
+			lightPdf = lights[sampledLight]->pdf(lightRecord);
+			weight = PowerHeuristic(1, bsdfPdf, 1, lightPdf);
+			Le = lights[sampledLight]->eval(lightRecord);
+		}
+
+		result += Le * fdivPdf * weight;
 	}
 
 	return result * lights.size();
@@ -87,7 +153,7 @@ public:
 				break;
 
 			// calculate lighting
-            Ltotal += rayThrough * UniformSampleAllLights(scene, tracedRay, its, sampler);
+            Ltotal += rayThrough * EMSSampleLights(scene, tracedRay, its, sampler);
 
 			Vector3f wo = -tracedRay.d;
 			wo.normalize();
