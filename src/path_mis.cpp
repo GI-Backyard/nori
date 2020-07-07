@@ -153,7 +153,7 @@ public:
 				break;
 
 			// calculate lighting
-            Ltotal += rayThrough * EMSSampleLights(scene, tracedRay, its, sampler);
+            Ltotal += rayThrough * MISSampleLights(scene, tracedRay, its, sampler);
 
 			Vector3f wo = -tracedRay.d;
 			wo.normalize();
