@@ -24,7 +24,7 @@ public:
         
         // sampling Light
         const std::vector<Emitter*>& lights = scene->getLights();
-        uint32_t sampledLight = sampler->next1D() * lights.size();
+        uint32_t sampledLight = static_cast<uint32_t>(sampler->next1D() * lights.size());
         EmitterQueryRecord lightRecord;
         Color3f Le = lights[sampledLight]->sample(lightRecord, Point3f(sampler->next1D(), sampler->next1D(), sampler->next1D()));
         float pdf = lights[sampledLight]->pdf(lightRecord);
@@ -40,11 +40,20 @@ public:
         secondaRay.maxt = lengthwi - Epsilon;
         if(!scene->rayIntersect(secondaRay))
         {
-            float geom = its.shFrame.n.dot(wi) * lightRecord.normal.dot(-wi) / (lengthwi * lengthwi);
-            if(geom < 0) geom = 0;
-            // bsdf
-            Color3f reflection = its.mesh->getBSDF()->eval(BSDFQueryRecord(its.toLocal(wi), its.toLocal(wo), EMeasure::ESolidAngle));
-            Ltotal += Le * reflection * geom / pdf;
+			float nDotL = its.shFrame.n.dot(wi);
+			float lightNDotNegL = lightRecord.normal.dot(-wi);
+			float geom = its.shFrame.n.dot(wi) * lightRecord.normal.dot(-wi) / (lengthwi * lengthwi);
+			if (nDotL < 0 || lightNDotNegL < 0)
+			{
+				geom = 0;
+			}
+			else
+			{
+				// bsdf
+				Color3f reflection = its.mesh->getBSDF()->eval(BSDFQueryRecord(its.toLocal(wi), its.toLocal(wo), EMeasure::ESolidAngle));
+				Ltotal += Le * reflection * geom / pdf;
+			}
+
         }
         
         
@@ -89,7 +98,7 @@ public:
     Color3f Li(const Scene *scene, Sampler *sampler, const Ray3f &ray) const {
         Intersection its;
         if(!scene->rayIntersect(ray, its)) {
-            return Color3f(0.1, 0.1, 0.1);
+            return Color3f(0.1f, 0.1f, 0.1f);
         }
         return EvaluateWhitted(scene, sampler, its, ray);
         

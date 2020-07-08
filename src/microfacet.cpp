@@ -55,13 +55,12 @@ public:
 		//wi.x() = abs(wi.x());
 		Vector3f wh = bRec.wi + bRec.wo;
 		wh.normalize();
-		float g = G1(bRec.wi, wh, Vector3f(0, 0, 1)) * G1(bRec.wo, wh, Vector3f(0, 0, 1));
-		// todo : verify d calculation
-		float d = 1.0f;
-		float costheI = clamp(bRec.wi.z(), 0.0f, 1.0f);
-		float costheO = clamp(bRec.wo.z(), 0.0f, 1.0f);
-		float costheH = clamp(wh.z(), 0.0f, 1.0f);
-		float f = fresnel(clamp(bRec.wi.dot(wh), 0.0f, 1.0f), bRec.eta, 1.0f);
+		float g = G(bRec.wi, bRec.wo, wh, Vector3f(0, 0, 1));
+		float d = D(bRec.wi, bRec.wo, wh, Vector3f(0, 0, 1));
+		float costheI = clamp(bRec.wi.z(), Epsilon, 1.0f);
+		float costheO = clamp(bRec.wo.z(), Epsilon, 1.0f);
+		float costheH = clamp(wh.z(), Epsilon, 1.0f);
+		float f = fresnel(clamp(bRec.wi.dot(wh), Epsilon, 1.0f), m_extIOR, m_intIOR);
 		result += m_ks * d * f * g / (4.0f * costheI * costheO * costheH);
 		if (!result.isValid())
 		{
@@ -74,17 +73,41 @@ public:
     float pdf(const BSDFQueryRecord &bRec) const {
 		Vector3f wh = bRec.wi + bRec.wo;
 		wh.normalize();
-		return Warp::squareToBeckmannPdf(wh, m_alpha);
+		float d = D(bRec.wi, bRec.wo, wh, Vector3f(0, 0, 1));
+		float j = 1 / (4 * bRec.wi.dot(wh));
+		float costheO = clamp(bRec.wo.z(), Epsilon, 1.0f);
+		return m_ks * d * j + (1-m_ks) * costheO * INV_PI;
     }
 
     /// Sample the BRDF
     Color3f sample(BSDFQueryRecord &bRec, const Point2f &_sample) const {
-		// sample wh
-		Vector3f wh = Warp::squareToBeckmann(_sample, m_alpha);
+		Point2f sample = _sample;
+		bool isSpecular = false;
+		float oneMinusKs = 1.f - m_ks;
+		// substract small epsilon
+		if (oneMinusKs == 1.0f) oneMinusKs -= Epsilon;
+		if (_sample.x() > oneMinusKs)
+		{
+			isSpecular = true;
+		}
+		// sample reuse
+		sample.x() = (_sample.x() - oneMinusKs) / (1.f - oneMinusKs);
+		Vector3f wh;
+		if (isSpecular)
+		{
+			// sample wh by beckmann
+			wh = Warp::squareToBeckmann(sample, m_alpha);
+		}
+		else
+		{
+			// sample wh by cos weight hemisphere
+			wh = Warp::squareToCosineHemisphere(sample);
+		}
+		// calculate wo, eta and measure
 		bRec.wo = wh * 2 - bRec.wi;
+		bRec.wo.normalize();
 		bRec.eta = m_extIOR / m_intIOR;
 		bRec.measure = EMeasure::ESolidAngle;
-
         // Note: Once you have implemented the part that computes the scattered
         // direction, the last part of this function should simply return the
         // BRDF value divided by the solid angle density and multiplied by the
@@ -121,11 +144,27 @@ private:
 		float lamda = wv.dot(wh) / wv.dot(n);
 		lamda = lamda <= 0 ? 0.f : 1.0f;
 		float costheV = wv.dot(n);
+		if (fabsf(costheV) < Epsilon) return 0.f;
 		float tantheV = sqrt(1 - costheV * costheV) / costheV;
 		float b = 1 / (m_alpha * tantheV);
-		b = b < 1.6f ? (3.535f * b + 2.181f * b * b) / (1.f + 2.276 * b + 2.577 * b * b) : 1.0f;
+		b = b < 1.6f ? (3.535f * b + 2.181f * b * b) / (1.f + 2.276f * b + 2.577f * b * b) : 1.0f;
 		return lamda * b;
 	}
+	float G(const Vector3f& wv, const Vector3f& wo, const Vector3f& wh, const Vector3f& n) const
+	{
+		return G1(wv, wh, n) * G1(wo, wh, n);
+	}
+	
+	float D(const Vector3f& wv, const Vector3f& wo, const Vector3f& wh, const Vector3f& n) const
+	{
+		float cosTheWh = wh.dot(n);
+		if (fabsf(cosTheWh) <= Epsilon) return 0.f;
+		float cos2TheWh = cosTheWh * cosTheWh;
+		float tan2Thewh = (1 - cos2TheWh) / cos2TheWh;
+		float cos4TheWh = cos2TheWh * cos2TheWh;
+		return expf(-tan2Thewh / (m_alpha * m_alpha)) / (M_PI * m_alpha * m_alpha * cos4TheWh);
+	}
+
 private:
     float m_alpha;
     float m_intIOR, m_extIOR;

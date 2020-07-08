@@ -38,11 +38,14 @@ public:
     virtual Color3f eval(const EmitterQueryRecord& record) const = 0;
 
     virtual float pdf(const EmitterQueryRecord& record) const = 0;
+    // delta light such as point light, directional light, spot light
+    virtual bool isDeltaLight() const { return false; }
     /**
      * \brief Return the type of object (i.e. Mesh/Emitter/etc.) 
      * provided by this instance
      * */
     EClassType getClassType() const { return EEmitter; }
+
 };
 
 NORI_NAMESPACE_END
