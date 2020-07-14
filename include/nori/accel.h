@@ -19,6 +19,7 @@
 #pragma once
 
 #include <nori/mesh.h>
+#include <nori/octreenode.h>
 
 NORI_NAMESPACE_BEGIN
 
@@ -66,7 +67,8 @@ public:
     bool rayIntersect(const Ray3f &ray, Intersection &its, bool shadowRay) const;
 
 private:
-    Mesh         *m_mesh = nullptr; ///< Mesh (only a single one for now)
+    std::vector<Mesh*> m_meshs; ///< Mesh (only a single one for now)
+    OcTreeNode   *m_ocTree = nullptr;
     BoundingBox3f m_bbox;           ///< Bounding box of the entire scene
 };
 
