@@ -25,3 +25,6 @@ rules.ninja
 *.opendb
 Debug
 x64
+scenes/*/*.exr
+scenes/*/*.png
+scenes/*/ajax.obj
