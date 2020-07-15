@@ -65,14 +65,14 @@ public:
 
     /// Draw a a sample from the BRDF model
     Color3f sample(BSDFQueryRecord &bRec, const Point2f &sample) const {
-        if (Frame::cosTheta(bRec.wi) <= 0)
+        if (Frame::cosTheta(bRec.wo) <= 0)
             return Color3f(0.0f);
 
         bRec.measure = ESolidAngle;
 
         /* Warp a uniformly distributed sample on [0,1]^2
            to a direction on a cosine-weighted hemisphere */
-        bRec.wo = Warp::squareToCosineHemisphere(sample);
+        bRec.wi = Warp::squareToCosineHemisphere(sample);
 
         /* Relative index of refraction: no change */
         bRec.eta = 1.0f;
